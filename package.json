@@ -1,0 +1,50 @@
+{
+  "name": "expo-photo-viewer",
+  "version": "0.1.0",
+  "description": "Native fullscreen photo galleries for Expo on iOS",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint src",
+    "prepack": "tsc -p tsconfig.json",
+    "example:ios": "pnpm run build && pnpm --filter expo-photo-viewer-example ios"
+  },
+  "keywords": [
+    "expo",
+    "react-native",
+    "ios",
+    "photo-viewer",
+    "image-gallery",
+    "uikit"
+  ],
+  "repository": "https://github.com/SoaringLabs/expo-photo-viewer",
+  "bugs": {
+    "url": "https://github.com/SoaringLabs/expo-photo-viewer/issues"
+  },
+  "author": "SoaringLabs",
+  "license": "MIT",
+  "homepage": "https://github.com/SoaringLabs/expo-photo-viewer#readme",
+  "devDependencies": {
+    "@types/react": "~19.3.0",
+    "eslint": "~9.39.4",
+    "eslint-config-universe": "^16.1.2",
+    "expo": "58.0.23",
+    "prettier": "^3.0.0",
+    "react": "19.3.1",
+    "react-native": "0.88.1",
+    "typescript": "~6.0.3"
+  },
+  "peerDependencies": {
+    "expo": "^58.0.0",
+    "react": "^19.0.0",
+    "react-native": "^0.88.0"
+  },
+  "files": [
+    "build",
+    "src",
+    "ios",
+    "expo-module.config.json"
+  ],
+  "packageManager": "pnpm@10.33.2"
+}

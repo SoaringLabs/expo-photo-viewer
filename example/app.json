@@ -1,0 +1,10 @@
+{
+  "expo": {
+    "name": "Photo Viewer Example",
+    "slug": "expo-photo-viewer-example",
+    "platforms": ["ios"],
+    "ios": {
+      "bundleIdentifier": "com.soaringlabs.expophotoviewer.example"
+    }
+  }
+}
