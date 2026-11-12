@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+- Use interactive Liquid Glass for the page counter on iOS 26 and later.
+- Use a shared dark appearance for the page counter and standard close button in the fullscreen viewer.
+- Keep the close button circular and its symbol steady during press feedback.
+
 ## 0.2.0
 
 - Use the standard UIKit close button by default and allow apps to customize its symbol, tint, and background.

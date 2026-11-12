@@ -21,10 +21,10 @@ This release targets Expo SDK 58 and React Native 0.88. No config plugin or phot
 
 ## Install
 
-Install the package from the [GitHub release](https://github.com/SoaringLabs/expo-photo-viewer/releases/tag/v0.2.0), then rebuild your iOS app.
+Install the package from the [GitHub release](https://github.com/SoaringLabs/expo-photo-viewer/releases/tag/v0.2.1), then rebuild your iOS app.
 
 ```sh
-npx expo install https://github.com/SoaringLabs/expo-photo-viewer/releases/download/v0.2.0/expo-photo-viewer-0.2.0.tgz
+npx expo install https://github.com/SoaringLabs/expo-photo-viewer/releases/download/v0.2.1/expo-photo-viewer-0.2.1.tgz
 npx expo run:ios
 ```
 

@@ -7,8 +7,9 @@ final class PhotoGalleryController: UIViewController, UIScrollViewDelegate {
   var currentItem: PhotoViewerItem { items[index] }
   var photoAlignmentRect: CGRect? { pages[index].alignmentRect(in: view) }
 
-  func canDismissInteractively(velocity: CGVector) -> Bool {
+  func canDismissInteractively(at location: CGPoint, velocity: CGVector) -> Bool {
     didFinishOpening && velocity.dy > abs(velocity.dx) && pages[index].atFit && !pager.isDecelerating
+      && (!counter.isUserInteractionEnabled || !counter.frame.contains(location))
   }
 
   private let items: [PhotoViewerItem]
@@ -17,7 +18,9 @@ final class PhotoGalleryController: UIViewController, UIScrollViewDelegate {
   private let labels: PhotoViewerLabels
   private let pager = UIScrollView()
   private let closeButton: UIButton
-  private let counter = UIView()
+  private let closeIcon: UIImageView?
+  private let counter = UIVisualEffectView(effect: nil)
+  private let counterText = UIStackView()
   private let currentPageNumber = UILabel()
   private var controlsHidden = false
   private var viewport = CGSize.zero
@@ -25,13 +28,14 @@ final class PhotoGalleryController: UIViewController, UIScrollViewDelegate {
 
   init(
     session: String, items: [PhotoViewerItem], index: Int, labels: PhotoViewerLabels,
-    closeButton: UIButton
+    closeControl: PhotoViewerCloseButtonOptions.Views
   ) {
     self.session = session
     self.items = items
     self.index = index
     self.labels = labels
-    self.closeButton = closeButton
+    self.closeButton = closeControl.button
+    self.closeIcon = closeControl.icon
     self.pages = items.enumerated().map { PhotoGalleryPage(item: $0.element, index: $0.offset, count: items.count, labels: labels) }
     super.init(nibName: nil, bundle: nil)
   }
@@ -44,6 +48,7 @@ final class PhotoGalleryController: UIViewController, UIScrollViewDelegate {
 
   override func viewDidLoad() {
     super.viewDidLoad()
+    if #available(iOS 26.0, *) { overrideUserInterfaceStyle = .dark }
     view.backgroundColor = .black
     view.accessibilityViewIsModal = true
     pager.contentInsetAdjustmentBehavior = .never
@@ -110,13 +115,19 @@ final class PhotoGalleryController: UIViewController, UIScrollViewDelegate {
     NSLayoutConstraint.activate([
       closeButton.topAnchor.constraint(equalTo: safe.topAnchor, constant: 4),
       closeButton.leadingAnchor.constraint(equalTo: safe.leadingAnchor, constant: 12),
-      closeButton.widthAnchor.constraint(equalToConstant: 44),
-      closeButton.heightAnchor.constraint(equalToConstant: 44),
+      closeButton.widthAnchor.constraint(equalToConstant: PhotoViewerCloseButtonOptions.diameter),
+      closeButton.heightAnchor.constraint(equalTo: closeButton.widthAnchor),
       counter.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-      counter.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
-      counter.heightAnchor.constraint(equalToConstant: 28),
-      counter.widthAnchor.constraint(greaterThanOrEqualToConstant: 58)
+      counter.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor)
     ])
+    if let closeIcon {
+      closeIcon.translatesAutoresizingMaskIntoConstraints = false
+      view.addSubview(closeIcon)
+      NSLayoutConstraint.activate([
+        closeIcon.centerXAnchor.constraint(equalTo: closeButton.centerXAnchor),
+        closeIcon.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor)
+      ])
+    }
   }
 
   private func configureCounter() {
@@ -133,25 +144,49 @@ final class PhotoGalleryController: UIViewController, UIScrollViewDelegate {
     let numberWidth = (String(items.count) as NSString).size(withAttributes: [.font: font]).width
     currentPageNumber.widthAnchor.constraint(equalToConstant: ceil(numberWidth)).isActive = true
 
-    let text = UIStackView(arrangedSubviews: [currentPageNumber, total])
-    text.alignment = .center
-    text.spacing = 4
-    text.translatesAutoresizingMaskIntoConstraints = false
-    counter.addSubview(text)
-    let preferredWidth = counter.widthAnchor.constraint(equalToConstant: 58)
+    counterText.addArrangedSubview(currentPageNumber)
+    counterText.addArrangedSubview(total)
+    counterText.alignment = .center
+    counterText.spacing = 4
+    counterText.translatesAutoresizingMaskIntoConstraints = false
+    counter.contentView.addSubview(counterText)
+    counter.isHidden = items.count < 2
+    counter.isUserInteractionEnabled = false
+    let size: CGSize
+    if #available(iOS 26.0, *) {
+      size = CGSize(width: 160, height: 44)
+      counter.cornerConfiguration = .capsule()
+      if items.count > 1 {
+        counter.effect = makeCounterGlassEffect()
+        counter.isUserInteractionEnabled = true
+      }
+      currentPageNumber.textColor = .label
+      total.textColor = .label
+    } else {
+      size = CGSize(width: 58, height: 28)
+      counter.backgroundColor = UIColor.black.withAlphaComponent(0.65)
+      counter.layer.cornerRadius = size.height / 2
+      counter.clipsToBounds = true
+    }
+    let preferredWidth = counter.widthAnchor.constraint(equalToConstant: size.width)
     preferredWidth.priority = .defaultHigh
     NSLayoutConstraint.activate([
-      text.centerXAnchor.constraint(equalTo: counter.centerXAnchor),
-      text.centerYAnchor.constraint(equalTo: counter.centerYAnchor),
-      counter.widthAnchor.constraint(greaterThanOrEqualTo: text.widthAnchor, constant: 16),
+      counterText.centerXAnchor.constraint(equalTo: counter.contentView.centerXAnchor),
+      counterText.centerYAnchor.constraint(equalTo: counter.contentView.centerYAnchor),
+      counter.widthAnchor.constraint(greaterThanOrEqualTo: counterText.widthAnchor, constant: 16),
+      counter.widthAnchor.constraint(greaterThanOrEqualToConstant: size.width),
+      counter.heightAnchor.constraint(equalToConstant: size.height),
       preferredWidth
     ])
-    counter.isHidden = items.count < 2
-    counter.backgroundColor = UIColor.black.withAlphaComponent(0.65)
-    counter.layer.cornerRadius = 14
-    counter.clipsToBounds = true
     counter.isAccessibilityElement = true
     counter.accessibilityTraits = .staticText
+  }
+
+  @available(iOS 26.0, *)
+  private func makeCounterGlassEffect() -> UIGlassEffect {
+    let effect = UIGlassEffect(style: .regular)
+    effect.isInteractive = true
+    return effect
   }
 
   private func toggleControls() {
@@ -159,26 +194,41 @@ final class PhotoGalleryController: UIViewController, UIScrollViewDelegate {
     let hidden = controlsHidden
     let controls: [UIView] = items.count > 1 ? [closeButton, counter] : [closeButton]
     closeButton.isUserInteractionEnabled = !hidden
+    if #available(iOS 26.0, *) {
+      counter.isUserInteractionEnabled = !hidden && items.count > 1
+    }
     for control in controls {
       control.isAccessibilityElement = !hidden
       if !hidden { control.isHidden = false }
     }
 
-    if UIAccessibility.isReduceMotionEnabled {
-      for control in controls {
-        control.layer.removeAllAnimations()
-        control.alpha = hidden ? 0 : 1
-        control.isHidden = hidden
+    let updateAppearance = {
+      let opacity: CGFloat = hidden ? 0 : 1
+      self.closeButton.alpha = opacity
+      self.closeIcon?.alpha = opacity
+      guard self.items.count > 1 else { return }
+      if #available(iOS 26.0, *) {
+        self.counter.effect = hidden ? nil : self.makeCounterGlassEffect()
+        self.counterText.alpha = opacity
+      } else {
+        self.counter.alpha = opacity
       }
+    }
+
+    if UIAccessibility.isReduceMotionEnabled {
+      for control in controls { control.layer.removeAllAnimations() }
+      closeIcon?.layer.removeAllAnimations()
+      counterText.layer.removeAllAnimations()
+      UIView.performWithoutAnimation(updateAppearance)
+      for control in controls { control.isHidden = hidden }
       return
     }
 
     UIView.animate(
       withDuration: 0.22, delay: 0,
-      options: [.beginFromCurrentState, .allowUserInteraction, .curveEaseInOut]
-    ) {
-      for control in controls { control.alpha = hidden ? 0 : 1 }
-    } completion: { [weak self] finished in
+      options: [.beginFromCurrentState, .allowUserInteraction, .curveEaseInOut],
+      animations: updateAppearance
+    ) { [weak self] finished in
       guard finished, hidden, self?.controlsHidden == true else { return }
       for control in controls { control.isHidden = true }
     }

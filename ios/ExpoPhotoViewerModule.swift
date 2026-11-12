@@ -23,39 +23,49 @@ struct PhotoViewerItem: Record {
 }
 
 struct PhotoViewerCloseButtonOptions: Record {
+  static let diameter: CGFloat = 44
+  typealias Views = (button: UIButton, icon: UIImageView?)
+
   @Field var symbolName: String?
   @Field var tintColor: UIColor?
   @Field var backgroundColor: UIColor?
 
-  func makeButton() -> UIButton {
+  func makeViews() -> Views {
     let image = symbolName.flatMap { UIImage(systemName: $0) }
     guard image != nil || tintColor != nil || backgroundColor != nil else {
-      return Self.makeSystemButton()
+      return Self.makeSystemViews()
     }
 
     let button = UIButton(type: .system)
     button.setImage(image ?? UIImage(systemName: "xmark"), for: .normal)
     button.tintColor = tintColor ?? .white
     button.backgroundColor = backgroundColor ?? UIColor.black.withAlphaComponent(0.65)
-    button.layer.cornerRadius = 22
-    return button
+    button.layer.cornerRadius = Self.diameter / 2
+    return (button, nil)
   }
 
-  static func makeSystemButton() -> UIButton {
+  static func makeSystemViews() -> Views {
     if #available(iOS 26.0, *) {
       var configuration = UIButton.Configuration.glass()
-      configuration.image = UIImage(systemName: "xmark")
-      configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
       configuration.cornerStyle = .capsule
       configuration.contentInsets = .zero
       let button = UIButton(configuration: configuration)
-      button.overrideUserInterfaceStyle = .dark
-      return button
+      // The glass rim can extend beyond the configuration's capsule.
+      button.layer.cornerRadius = diameter / 2
+      button.layer.cornerCurve = .circular
+      button.clipsToBounds = true
+      // Draw the symbol outside the button's glass press animation.
+      let symbol = UIImage.SymbolConfiguration(pointSize: 22, weight: .regular)
+      let icon = UIImageView(image: UIImage(systemName: "xmark", withConfiguration: symbol))
+      icon.tintColor = .label
+      icon.isUserInteractionEnabled = false
+      icon.isAccessibilityElement = false
+      return (button, icon)
     }
 
     let button = UIButton(type: .close)
     button.overrideUserInterfaceStyle = .dark
-    return button
+    return (button, nil)
   }
 }
 
@@ -82,7 +92,7 @@ public final class ExpoPhotoViewerModule: Module {
 
       let controller = PhotoGalleryController(
         session: session, items: items, index: index, labels: labels,
-        closeButton: closeButton?.makeButton() ?? PhotoViewerCloseButtonOptions.makeSystemButton()
+        closeControl: closeButton?.makeViews() ?? PhotoViewerCloseButtonOptions.makeSystemViews()
       )
       controller.modalPresentationStyle = .fullScreen
       controller.onRequest = { [weak self] key, retry in
@@ -98,7 +108,7 @@ public final class ExpoPhotoViewerModule: Module {
           (context.zoomedViewController as? PhotoGalleryController)?.photoAlignmentRect
         }
         options.interactiveDismissShouldBegin = { [weak controller] context in
-          controller?.canDismissInteractively(velocity: context.velocity) ?? false
+          controller?.canDismissInteractively(at: context.location, velocity: context.velocity) ?? false
         }
         controller.preferredTransition = .zoom(options: options) { [weak self] context in
           guard let gallery = context.zoomedViewController as? PhotoGalleryController,

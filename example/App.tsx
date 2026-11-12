@@ -7,6 +7,7 @@ const samples = [
   { key: 'dusk', asset: require('./assets/dusk.jpg'), width: 1440, height: 960 },
   { key: 'dawn', asset: require('./assets/dawn.jpg'), width: 1080, height: 2348 },
   { key: 'mist', asset: require('./assets/mist.jpg'), width: 1200, height: 1200 },
+  { key: 'white', asset: require('./assets/white.png'), width: 1206, height: 2622 },
 ];
 
 export default function App() {
