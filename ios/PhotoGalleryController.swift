@@ -14,21 +14,24 @@ final class PhotoGalleryController: UIViewController, UIScrollViewDelegate {
   private let items: [PhotoViewerItem]
   private let pages: [PhotoGalleryPage]
   private var index: Int
-  private let caption: String?
   private let labels: PhotoViewerLabels
   private let pager = UIScrollView()
-  private let closeButton = UIButton(type: .system)
-  private let counter = UILabel()
-  private let captionLabel = UILabel()
+  private let closeButton: UIButton
+  private let counter = UIView()
+  private let currentPageNumber = UILabel()
+  private var controlsHidden = false
   private var viewport = CGSize.zero
   private var didFinishOpening = false
 
-  init(session: String, items: [PhotoViewerItem], index: Int, caption: String?, labels: PhotoViewerLabels) {
+  init(
+    session: String, items: [PhotoViewerItem], index: Int, labels: PhotoViewerLabels,
+    closeButton: UIButton
+  ) {
     self.session = session
     self.items = items
     self.index = index
-    self.caption = caption
     self.labels = labels
+    self.closeButton = closeButton
     self.pages = items.enumerated().map { PhotoGalleryPage(item: $0.element, index: $0.offset, count: items.count, labels: labels) }
     super.init(nibName: nil, bundle: nil)
   }
@@ -96,30 +99,10 @@ final class PhotoGalleryController: UIViewController, UIScrollViewDelegate {
   }
 
   private func configureControls() {
-    closeButton.setImage(UIImage(systemName: "xmark"), for: .normal)
-    closeButton.tintColor = .white
-    closeButton.backgroundColor = UIColor.black.withAlphaComponent(0.65)
-    closeButton.layer.cornerRadius = 22
     closeButton.accessibilityLabel = labels.close
     closeButton.addAction(UIAction { [weak self] _ in self?.dismiss(animated: true) }, for: .touchUpInside)
-    counter.textColor = .white
-    counter.backgroundColor = UIColor.black.withAlphaComponent(0.65)
-    counter.font = .monospacedDigitSystemFont(ofSize: 15, weight: .medium)
-    counter.textAlignment = .center
-    counter.layer.cornerRadius = 14
-    counter.clipsToBounds = true
-    captionLabel.textColor = .white
-    captionLabel.backgroundColor = UIColor.black.withAlphaComponent(0.78)
-    captionLabel.font = .preferredFont(forTextStyle: .footnote)
-    captionLabel.adjustsFontForContentSizeCategory = true
-    captionLabel.textAlignment = .center
-    captionLabel.numberOfLines = 3
-    captionLabel.text = caption
-    captionLabel.layer.cornerRadius = 10
-    captionLabel.clipsToBounds = true
-    captionLabel.isHidden = caption?.isEmpty != false
-
-    for control in [closeButton, counter, captionLabel] as [UIView] {
+    configureCounter()
+    for control in [closeButton, counter] as [UIView] {
       control.translatesAutoresizingMaskIntoConstraints = false
       view.addSubview(control)
     }
@@ -129,25 +112,88 @@ final class PhotoGalleryController: UIViewController, UIScrollViewDelegate {
       closeButton.leadingAnchor.constraint(equalTo: safe.leadingAnchor, constant: 12),
       closeButton.widthAnchor.constraint(equalToConstant: 44),
       closeButton.heightAnchor.constraint(equalToConstant: 44),
-      counter.centerXAnchor.constraint(equalTo: safe.centerXAnchor),
+      counter.centerXAnchor.constraint(equalTo: view.centerXAnchor),
       counter.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
       counter.heightAnchor.constraint(equalToConstant: 28),
-      counter.widthAnchor.constraint(greaterThanOrEqualToConstant: 58),
-      captionLabel.leadingAnchor.constraint(equalTo: safe.leadingAnchor, constant: 20),
-      captionLabel.trailingAnchor.constraint(equalTo: safe.trailingAnchor, constant: -20),
-      captionLabel.bottomAnchor.constraint(equalTo: safe.bottomAnchor, constant: -12)
+      counter.widthAnchor.constraint(greaterThanOrEqualToConstant: 58)
     ])
   }
 
-  private func toggleControls() {
-    closeButton.isHidden.toggle()
-    counter.isHidden = closeButton.isHidden || items.count < 2
-    captionLabel.isHidden = closeButton.isHidden || caption?.isEmpty != false
+  private func configureCounter() {
+    let total = UILabel()
+    let font = UIFont.monospacedDigitSystemFont(ofSize: 15, weight: .medium)
+    for label in [currentPageNumber, total] {
+      label.textColor = .white
+      label.font = font
+      label.isAccessibilityElement = false
+    }
+    total.text = "/ \(items.count)"
+    currentPageNumber.textAlignment = .right
+    currentPageNumber.clipsToBounds = true
+    let numberWidth = (String(items.count) as NSString).size(withAttributes: [.font: font]).width
+    currentPageNumber.widthAnchor.constraint(equalToConstant: ceil(numberWidth)).isActive = true
+
+    let text = UIStackView(arrangedSubviews: [currentPageNumber, total])
+    text.alignment = .center
+    text.spacing = 4
+    text.translatesAutoresizingMaskIntoConstraints = false
+    counter.addSubview(text)
+    let preferredWidth = counter.widthAnchor.constraint(equalToConstant: 58)
+    preferredWidth.priority = .defaultHigh
+    NSLayoutConstraint.activate([
+      text.centerXAnchor.constraint(equalTo: counter.centerXAnchor),
+      text.centerYAnchor.constraint(equalTo: counter.centerYAnchor),
+      counter.widthAnchor.constraint(greaterThanOrEqualTo: text.widthAnchor, constant: 16),
+      preferredWidth
+    ])
+    counter.isHidden = items.count < 2
+    counter.backgroundColor = UIColor.black.withAlphaComponent(0.65)
+    counter.layer.cornerRadius = 14
+    counter.clipsToBounds = true
+    counter.isAccessibilityElement = true
+    counter.accessibilityTraits = .staticText
   }
 
-  private func updatePage() {
-    counter.isHidden = closeButton.isHidden || items.count < 2
-    counter.text = "\(index + 1) / \(items.count)"
+  private func toggleControls() {
+    controlsHidden.toggle()
+    let hidden = controlsHidden
+    let controls: [UIView] = items.count > 1 ? [closeButton, counter] : [closeButton]
+    closeButton.isUserInteractionEnabled = !hidden
+    for control in controls {
+      control.isAccessibilityElement = !hidden
+      if !hidden { control.isHidden = false }
+    }
+
+    if UIAccessibility.isReduceMotionEnabled {
+      for control in controls {
+        control.layer.removeAllAnimations()
+        control.alpha = hidden ? 0 : 1
+        control.isHidden = hidden
+      }
+      return
+    }
+
+    UIView.animate(
+      withDuration: 0.22, delay: 0,
+      options: [.beginFromCurrentState, .allowUserInteraction, .curveEaseInOut]
+    ) {
+      for control in controls { control.alpha = hidden ? 0 : 1 }
+    } completion: { [weak self] finished in
+      guard finished, hidden, self?.controlsHidden == true else { return }
+      for control in controls { control.isHidden = true }
+    }
+  }
+
+  private func updatePage(from previousIndex: Int? = nil) {
+    if let previousIndex, items.count > 1, !controlsHidden, !UIAccessibility.isReduceMotionEnabled {
+      let transition = CATransition()
+      transition.type = .push
+      transition.subtype = index > previousIndex ? .fromBottom : .fromTop
+      transition.duration = 0.2
+      transition.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+      currentPageNumber.layer.add(transition, forKey: "pageNumber")
+    }
+    currentPageNumber.text = String(index + 1)
     counter.accessibilityLabel = labels.photoPosition(index: index, count: items.count)
     for (pageIndex, page) in pages.enumerated() {
       page.accessibilityElementsHidden = pageIndex != index
@@ -160,8 +206,9 @@ final class PhotoGalleryController: UIViewController, UIScrollViewDelegate {
     guard viewport.width > 0 else { return }
     let next = min(items.count - 1, max(0, Int((pager.contentOffset.x / viewport.width).rounded())))
     guard next != index else { return }
+    let previous = index
     index = next
-    updatePage()
+    updatePage(from: previous)
     pages[index].requestIfNeeded()
     UIAccessibility.post(notification: .pageScrolled, argument: counter.accessibilityLabel)
   }

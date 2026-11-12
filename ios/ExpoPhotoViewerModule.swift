@@ -22,6 +22,43 @@ struct PhotoViewerItem: Record {
   @Field var sourceTag: Int?
 }
 
+struct PhotoViewerCloseButtonOptions: Record {
+  @Field var symbolName: String?
+  @Field var tintColor: UIColor?
+  @Field var backgroundColor: UIColor?
+
+  func makeButton() -> UIButton {
+    let image = symbolName.flatMap { UIImage(systemName: $0) }
+    guard image != nil || tintColor != nil || backgroundColor != nil else {
+      return Self.makeSystemButton()
+    }
+
+    let button = UIButton(type: .system)
+    button.setImage(image ?? UIImage(systemName: "xmark"), for: .normal)
+    button.tintColor = tintColor ?? .white
+    button.backgroundColor = backgroundColor ?? UIColor.black.withAlphaComponent(0.65)
+    button.layer.cornerRadius = 22
+    return button
+  }
+
+  static func makeSystemButton() -> UIButton {
+    if #available(iOS 26.0, *) {
+      var configuration = UIButton.Configuration.glass()
+      configuration.image = UIImage(systemName: "xmark")
+      configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
+      configuration.cornerStyle = .capsule
+      configuration.contentInsets = .zero
+      let button = UIButton(configuration: configuration)
+      button.overrideUserInterfaceStyle = .dark
+      return button
+    }
+
+    let button = UIButton(type: .close)
+    button.overrideUserInterfaceStyle = .dark
+    return button
+  }
+}
+
 public final class ExpoPhotoViewerModule: Module {
   private weak var gallery: PhotoGalleryController?
 
@@ -33,14 +70,20 @@ public final class ExpoPhotoViewerModule: Module {
     }
     Events("onRequestPhoto", "onClose")
 
-    AsyncFunction("present") { [self] (session: String, items: [PhotoViewerItem], index: Int, caption: String?, labels: PhotoViewerLabels) -> Bool in
+    AsyncFunction("present") { [self] (
+      session: String, items: [PhotoViewerItem], index: Int, labels: PhotoViewerLabels,
+      closeButton: PhotoViewerCloseButtonOptions?
+    ) -> Bool in
       guard #available(iOS 18.0, *), self.gallery == nil, items.indices.contains(index),
             let presenter = self.appContext?.utilities?.currentViewController(),
             presenter.viewIfLoaded?.window != nil,
             !presenter.isBeingDismissed, presenter.presentedViewController == nil
       else { return false }
 
-      let controller = PhotoGalleryController(session: session, items: items, index: index, caption: caption, labels: labels)
+      let controller = PhotoGalleryController(
+        session: session, items: items, index: index, labels: labels,
+        closeButton: closeButton?.makeButton() ?? PhotoViewerCloseButtonOptions.makeSystemButton()
+      )
       controller.modalPresentationStyle = .fullScreen
       controller.onRequest = { [weak self] key, retry in
         self?.sendEvent("onRequestPhoto", ["session": session, "key": key, "retry": retry])

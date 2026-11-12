@@ -1,18 +1,19 @@
 import { Asset } from 'expo-asset';
 import { isPhotoViewerSupported, openPhotoViewer } from 'expo-photo-viewer';
 import { useEffect, useRef, useState, type ComponentRef } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 const samples = [
-  { key: 'dusk', asset: require('./assets/dusk.jpg'), width: 1200, height: 800 },
-  { key: 'dawn', asset: require('./assets/dawn.jpg'), width: 800, height: 1200 },
-  { key: 'mist', asset: require('./assets/mist.jpg'), width: 1000, height: 1000 },
+  { key: 'dusk', asset: require('./assets/dusk.jpg'), width: 1440, height: 960 },
+  { key: 'dawn', asset: require('./assets/dawn.jpg'), width: 1080, height: 2348 },
+  { key: 'mist', asset: require('./assets/mist.jpg'), width: 1200, height: 1200 },
 ];
 
 export default function App() {
   const sources = useRef<Array<ComponentRef<typeof View> | null>>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [message, setMessage] = useState<string>();
+  const [customClose, setCustomClose] = useState(false);
   const supported = isPhotoViewerSupported();
 
   useEffect(() => {
@@ -41,6 +42,10 @@ export default function App() {
         source: sources.current[index],
       })),
       initialIndex,
+      labels: { close: '关闭' },
+      closeButton: customClose
+        ? { symbolName: 'chevron.down', tintColor: '#fff', backgroundColor: '#315f4b' }
+        : undefined,
     });
     if (!opened) setMessage('The gallery could not be opened.');
   }
@@ -73,6 +78,16 @@ export default function App() {
           </Pressable>
         ))}
       </View>
+      {supported && (
+        <View style={styles.option}>
+          <Text style={styles.description}>Custom close button</Text>
+          <Switch
+            accessibilityLabel="Custom close button"
+            value={customClose}
+            onValueChange={setCustomClose}
+          />
+        </View>
+      )}
       {message && (
         <Text accessibilityRole="alert" style={styles.description}>
           {message}
@@ -87,6 +102,7 @@ const styles = StyleSheet.create({
   title: { color: '#fff', fontSize: 32, fontWeight: '700' },
   description: { color: '#cbd5e1', fontSize: 16 },
   row: { flexDirection: 'row', gap: 8 },
+  option: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   thumbnail: { flex: 1, aspectRatio: 1, borderRadius: 12, overflow: 'hidden' },
   photo: { width: '100%', height: '100%' },
 });

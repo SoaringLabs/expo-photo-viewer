@@ -1,6 +1,6 @@
 import { requireOptionalNativeModule } from 'expo';
 import type { ComponentRef } from 'react';
-import { findNodeHandle, Platform, type View } from 'react-native';
+import { type ColorValue, findNodeHandle, Platform, processColor, type View } from 'react-native';
 
 export type PhotoViewerItem = {
   /** Unique within this gallery. */
@@ -24,11 +24,19 @@ export type PhotoViewerLabels = {
   position?: string;
 };
 
+export type PhotoViewerCloseButtonOptions = {
+  /** An SF Symbol name. Defaults to xmark when using a custom style. */
+  symbolName?: string;
+  tintColor?: ColorValue;
+  backgroundColor?: ColorValue;
+};
+
 export type OpenPhotoViewerOptions = {
   photos: readonly PhotoViewerItem[];
   initialIndex?: number;
-  caption?: string;
   labels?: PhotoViewerLabels;
+  /** Appearance overrides. Omit to use the standard UIKit close button. */
+  closeButton?: PhotoViewerCloseButtonOptions;
   /** Resolve a local file:// URL. Return null for an unavailable photo, or throw to allow retry. */
   loadPhoto?: (photo: PhotoViewerItem, request: { retry: boolean }) => Promise<string | null>;
   onClose?: () => void;
@@ -50,14 +58,20 @@ type NativeEvents = {
   onRequestPhoto: { session: string; key: string; retry: boolean };
 };
 
+type NativeCloseButtonOptions = {
+  symbolName?: string;
+  tintColor?: ReturnType<typeof processColor>;
+  backgroundColor?: ReturnType<typeof processColor>;
+};
+
 type NativeViewer = {
   isSupported: boolean;
   present(
     session: string,
     items: NativeItem[],
     index: number,
-    caption: string | null,
-    labels: PhotoViewerLabels
+    labels: PhotoViewerLabels,
+    closeButton?: NativeCloseButtonOptions
   ): Promise<boolean>;
   setPhoto(session: string, key: string, uri: string | null, unavailable: boolean): Promise<void>;
   dismiss(session: string): Promise<void>;
@@ -81,8 +95,8 @@ export function isPhotoViewerSupported(): boolean {
 export async function openPhotoViewer({
   photos,
   initialIndex = 0,
-  caption,
   labels = {},
+  closeButton,
   loadPhoto,
   onClose,
   signal,
@@ -152,9 +166,15 @@ export async function openPhotoViewer({
   );
   signal?.addEventListener('abort', abort);
 
-  presented = await viewer
-    .present(session, items, initialIndex, caption ?? null, labels)
-    .catch(() => false);
+  const symbolName = closeButton?.symbolName;
+  const tintColor = processColor(closeButton?.tintColor);
+  const backgroundColor = processColor(closeButton?.backgroundColor);
+  const button =
+    symbolName || tintColor != null || backgroundColor != null
+      ? { symbolName, tintColor, backgroundColor }
+      : undefined;
+  const presentation = viewer.present(session, items, initialIndex, labels, button);
+  presented = await presentation.catch(() => false);
   if (!presented) release();
   else if (signal?.aborted) abort();
   return presented;

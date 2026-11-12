@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0
+
+- Use the standard UIKit close button by default and allow apps to customize its symbol, tint, and background.
+- Animate the current page number when paging and honor Reduce Motion.
+- Center the page counter and fade the controls when tapping the photo.
+- Remove the caption option from the gallery.
+
 ## 0.1.0
 
 - Added the iOS 18+ fullscreen UIKit photo gallery for Expo SDK 58.

@@ -21,12 +21,14 @@ This release targets Expo SDK 58 and React Native 0.88. No config plugin or phot
 
 ## Install
 
-Install the package from the [GitHub release](https://github.com/SoaringLabs/expo-photo-viewer/releases/tag/v0.1.0), then rebuild your iOS app.
+Install the package from the [GitHub release](https://github.com/SoaringLabs/expo-photo-viewer/releases/tag/v0.2.0), then rebuild your iOS app.
 
 ```sh
-npx expo install https://github.com/SoaringLabs/expo-photo-viewer/releases/download/v0.1.0/expo-photo-viewer-0.1.0.tgz
+npx expo install https://github.com/SoaringLabs/expo-photo-viewer/releases/download/v0.2.0/expo-photo-viewer-0.2.0.tgz
 npx expo run:ios
 ```
+
+When upgrading from 0.1.0, remove the `caption` option from your calls and rebuild the iOS app.
 
 ## Quick start
 
@@ -72,17 +74,36 @@ export function PhotoThumbnail({ uri }: { uri: string }) {
 | --- | --- |
 | `photos` | Array of photos with unique `key` values. Each can include a full-size `uri`, a temporary `previewUri`, `width` and `height` for the initial aspect ratio, and a native thumbnail `source` |
 | `initialIndex` | Zero-based starting photo index. Defaults to `0` |
-| `caption` | Optional text overlaid at the bottom of the gallery |
 | `labels` | Optional strings for `close`, `retry`, `unavailable`, and `position`. The position template accepts `{current}` and `{total}` |
+| `closeButton` | Optional appearance overrides for the close button. The standard UIKit close button is the default |
 | `loadPhoto(photo, { retry })` | Async loader for a missing or failed full-size photo. Return a local URI on success or `null` if unavailable. Throw to let the viewer offer a retry |
 | `onClose` | Called when the native gallery closes |
 | `signal` | Optional `AbortSignal` that closes the gallery and discards results from pending loads. The loader can use the same signal to cancel its own work |
 
 The viewer reads local files. The caller controls network requests, authentication, and file lifetime.
 
+### Close button
+
+Omit `closeButton` to use UIKit's system appearance. On iOS 26 and later it uses Liquid Glass, and on earlier supported versions it uses UIKit's standard close button. Set `closeButton` to customize the SF Symbol, tint, or background. Use `labels.close` to customize the VoiceOver label.
+
+```ts
+await openPhotoViewer({
+  photos,
+  closeButton: {
+    symbolName: 'chevron.down',
+    tintColor: '#fff',
+    backgroundColor: '#315f4b',
+  },
+});
+```
+
+Rebuild your iOS app after updating the native module to use the appearance options.
+
 ## Run the example
 
 The [example app](./example) opens a three-photo gallery from bundled images of different aspect ratios.
+
+The sample photos are available under the [Unsplash License](https://unsplash.com/license). Photos by [Sergei Gussev](https://unsplash.com/photos/rocky-coastline-with-ocean-waves-at-sunset-aY29FSy6R8k), [Hameen Reynolds](https://unsplash.com/photos/aerial-view-of-waves-crashing-on-a-sandy-beach-zWFa7mlQAYk), and [Howard Walsh](https://unsplash.com/photos/rocky-coastline-with-cliffs-and-the-ocean-vnZWPkhFtQ8).
 
 ```sh
 corepack enable
